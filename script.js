@@ -20,6 +20,7 @@ var component = function (options) {
     this.videoContainer;
     this.video;
     this.coverImage;
+    this.endingImage;
     
     this.render();
     this.events();
@@ -46,6 +47,13 @@ component.prototype = {
         this.videoContainer.appendChild(this.video);
         
         /* cover image */
+        this.renderCoverImage();
+        /* ending image */
+        this.renderEndingImage();
+        
+        this.content.appendChild(this.videoContainer);
+    },
+    renderCoverImage : function () {
         if (this.data.video.coverImage.src != '') {
             this.coverImage = document.createElement('img');
             this.coverImage.width = '300';
@@ -56,15 +64,40 @@ component.prototype = {
         
             this.videoContainer.appendChild(this.coverImage);
         }
-        
-        
-        this.content.appendChild(this.videoContainer);
     },
+    renderEndingImage : function () {
+        if (this.data.video.endingImage.src != '') {
+            this.endingImage = document.createElement('img');
+            this.endingImage.width = '300';
+            this.endingImage.height = '250';
+            this.endingImage.id = 'ending-image-' + this.id;
+            this.endingImage.className = 'ending-image';
+            /* Hide by default */
+            this.endingImage.style.display = 'none';
+            this.endingImage.src = this.data.video.endingImage.src;
+        
+            this.videoContainer.appendChild(this.endingImage);
+        }
+    },
+    
+    
+    
+    
     events : function () {
         
         var _this = this;
         
         /* cover image */
+        this.eventsCoverImage();
+        
+        this.video.addEventListener('ended', function () {
+            _this.eventsEndingImage();
+        })
+        
+    },
+    eventsCoverImage : function () {
+        var _this = this;
+        
         if (this.coverImage != '') {
             var fn = [];
             /* play video */
@@ -75,9 +108,16 @@ component.prototype = {
             /* open landing page */
             fn[1] = function () {
                 console.log(_this.data.video.coverImage.lpUrl);
+                
+                e.target.style.display = 'none';
             }
             /* click event for cover image */
             this.coverImage.addEventListener('click', fn[this.data.video.coverImage.action])
+        }
+    },
+    eventsEndingImage : function () {
+        if (this.endingImage != '') {
+            this.endingImage.style.display = 'block';
         }
     }
 }
@@ -104,7 +144,7 @@ new component ({
                 lpUrl : ''
             },
             endingImage : {
-                src : '',
+                src : 'http://www.imagine-publishing.co.uk/adresources/images/300x250.jpg',
                 action : 0,
                 lpUrl : ''
             },
