@@ -19,8 +19,10 @@ var component = function (options) {
     /* variable which need to be manipulated for freeflow */
     this.videoContainer;
     this.video;
-    this.coverImage;
+    this.coverImage = '';
     this.endingImage;
+    this.autoplay = this.data.video.autoplay; // 0 - none, 1 - autoplay, 2 - inview
+    this.clickthrough = '';
     
     this.render();
     this.events();
@@ -43,13 +45,32 @@ component.prototype = {
             '<source src="' + this.data.video.src.mp4 + '" type="video/mp4" />\
             <source src="' + this.data.video.src.webm + '" type="video/webm"/>\
             <source src="' + this.data.video.src.ogg + '" type="video/ogg" />';
-
+        this.video.width = this.data.video.w;
+        this.video.height = this.data.video.h;
+        /* set autoplay */
+        if (this.autoplay == 1 && this.data.video.coverImage.src == '') {
+            this.video.setAttribute('autoplay', '');
+        }
+        /* mute by default */
+        if ((this.autoplay == 1 && this.data.video.coverImage.src == '') || this.autoplay == 2) {
+            this.video.setAttribute('muted', '');
+        }
+        
+        /* control */
+        if (this.data.video.control == 1) {
+            this.video.setAttribute('controls', '');
+        } else if (this.data.video.control == 2) {
+            this.renderSpecialControl();
+        }
+        
         this.videoContainer.appendChild(this.video);
         
         /* cover image */
         this.renderCoverImage();
         /* ending image */
         this.renderEndingImage();
+        /* clickthrough */
+        this.renderClickthrough();
         
         this.content.appendChild(this.videoContainer);
     },
@@ -79,7 +100,39 @@ component.prototype = {
             this.videoContainer.appendChild(this.endingImage);
         }
     },
-    
+    renderClickthrough : function () {
+        if (this.data.video.clickthrough.txt != '' && this.data.video.clickthrough.lpUrl != '') {
+            this.clickthrough = document.createElement('div');
+            this.clickthrough.height = '25';
+            this.clickthrough.id = 'clickthrough-container-' + this.id;
+            this.clickthrough.className = 'clickthrough-container';
+                    
+            this.clickthrough.innerHTML = '<span>' + this.data.video.clickthrough.txt + '</span><img src="images/openlink.png"/>';
+        
+            this.videoContainer.appendChild(this.clickthrough);
+        }
+    },
+    renderReplayButton : function () {
+        
+    },
+    /* 
+    * control in the middle, show - 
+    * play button when the video is not play 
+    * mute/unmute button when the video is playing 
+    * replay button when the video end
+    */
+    renderSpecialControl : function () {
+        this.specialControl = document.createElement('div');
+        this.specialControl.id = 'special-control-' + this.tab;
+        this.specialControl.className = 'special-control';
+        this.specialControl.innerHTML = 
+            '<img src="images/play.png"/> \
+             <img src="images/mute.png"/> \
+             <img src="images/unmute.png"/> \
+             <img src="images/replay.png"/>';
+        
+        this.videoContainer.appendChild(this.specialControl);
+    },
     
     
     
@@ -89,10 +142,46 @@ component.prototype = {
         
         /* cover image */
         this.eventsCoverImage();
+        /* clickthrough */
+        this.eventsClickthrough();
+        
+        this.video.addEventListener('play', function () {
+            console.log('play');
+        });
+        this.video.addEventListener('pause', function () {
+            console.log('pause');
+        });
+        this.video.addEventListener('replay', function () {
+            console.log('replay');
+        });
+        this.video.addEventListener('stop', function () {
+            console.log('stop');
+        });
         
         this.video.addEventListener('ended', function () {
+            /* ending image */
             _this.eventsEndingImage();
         })
+        
+        /* listen to post message */
+        nj.fn.listen({
+            callback : function (resp) { console.log(resp);
+                /* inview */
+                if (resp.auth == 'inview' && _this.autoplay == 2) {
+                    _this.video.play();
+                }
+                
+                /* outview */
+                if (resp.auth == 'outview' && _this.autoplay == 2) {
+                    _this.video.pause();
+                }
+                
+                /* close exp */
+                if (resp.auth == 'closeExpandable' ) {
+                    _this.video.stop();
+                }
+            }
+        });
         
     },
     eventsCoverImage : function () {
@@ -119,6 +208,32 @@ component.prototype = {
         if (this.endingImage != '') {
             this.endingImage.style.display = 'block';
         }
+    },
+    eventsClickthrough : function () {
+        var _this = this;
+        
+        if (this.clickthrough != '') {
+            this.clickthrough.addEventListener('click', function () {
+                console.log(_this.data.video.clickthrough.lpUrl);
+            });
+            this.video.addEventListener('play', function () {
+                /* hide txt after video played for 5 secs */
+                setTimeout(function () {
+                    _this.clickthrough.querySelector('span').style.display = 'none';
+                }, 5000);
+            });
+        }
+    }, 
+    eventsSpecialControl : function () {
+        var _this = this; 
+        
+        if (this.specialControl != '') {
+            /* check for autoplay */
+            
+            /* played, show mute/unmute */
+            
+            /* ended, show replay */
+        }
     }
 }
 
@@ -133,13 +248,15 @@ new component ({
     layer : 'layer1', //optional (freeflow)
     data : {
         video : {
+            w : 300,
+            h : 250,
             src : {
                 mp4 : 'http://www.w3schools.com/html/mov_bbb.mp4',
                 webm : '',
                 ogg : 'http://www.w3schools.com/html/mov_bbb.ogg'
             },
             coverImage : {
-                src : 'http://www.imagine-publishing.co.uk/adresources/images/300x250.jpg',
+                src : '',
                 action : 0,
                 lpUrl : ''
             },
@@ -148,11 +265,11 @@ new component ({
                 action : 0,
                 lpUrl : ''
             },
-            controller : 0,
-            autoplay : 0,
+            control : 2,
+            autoplay : 2,
             clickthrough : {
-                txt : '', 
-                lpUrl : ''
+                txt : 'Click Here', 
+                lpUrl : 'https://www.w3schools.com'
             },
             extTrackers : {
                 type : 0,
