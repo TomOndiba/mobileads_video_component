@@ -13,9 +13,59 @@
     <script src="nj.library.js"></script>
     <script   src="https://code.jquery.com/jquery-1.12.3.min.js"   integrity="sha256-aaODHAgvwQW1bFOGXMeX+pC4PZIPsvn2h1sArYOhgXQ="   crossorigin="anonymous"></script>
     <script src="script.js"></script>
+    <script src="m.js"></script>
+    
+    
+        
     
     <script>
+        /* Initializing */
+new component ({
+    container : $('#test'), //optional (freeflow ad creation)
+    id : 1,
+    content : $('#test'), // needed for rendering only
+    controller : null, //optional (freeflow creation)
+    sdk : null, //optional (freeflow)
+    tab : 'tab1',
+    layer : 'layer1', //optional (freeflow)
+    data : {
+        video : {
+            mobile : true,
+            w : 300,
+            h : 250,
+            src : {
+                mp4 : 'http://www.w3schools.com/html/mov_bbb.mp4',
+                webm : '',
+                ogg : 'http://www.w3schools.com/html/mov_bbb.ogg'
+            },
+            coverImage : {
+                src : '',
+                action : 0,
+                lpUrl : ''
+            },
+            endingImage : {
+                src : '',
+                action : 0,
+                lpUrl : ''
+            },
+            control : 1,
+            autoplay : 0,
+            clickthrough : {
+                txt : 'Click Here', 
+                lpUrl : 'https://www.w3schools.com'
+            },
+            extTrackers : {
+                type : 0,
+                video_play : '',
+                video_play_25 : '',
+                video_play_50 : '',
+                video_play_75 : '',
+                video_play_100 : ''
+            }
+        }
         
+    } // needed for rendering only
+})
     </script>
 </body>
 </html>

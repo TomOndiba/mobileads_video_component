@@ -19,10 +19,15 @@ var component = function (options) {
     /* variable which need to be manipulated for freeflow */
     this.videoContainer;
     this.video;
+    this.videoState = 0; //0 - unplayed, 1 - playing, 2 - pause. 3 - ended
     this.coverImage = '';
-    this.endingImage;
+    this.endingImage = '';
     this.autoplay = this.data.video.autoplay; // 0 - none, 1 - autoplay, 2 - inview
     this.clickthrough = '';
+    this.replayBtn = '';
+    this.specialControl = '';
+    this.playTimeTracking = function () {};
+    this.control = {};
     
     this.render();
     this.events();
@@ -37,28 +42,17 @@ component.prototype = {
         this.videoContainer.id = 'video-container-' + this.id;
         this.videoContainer.className = 'video-container';
         
-        /* render video */
-        this.video = document.createElement('video')
-        this.video.id = 'video';
-        this.video.controller = true;
-        this.video.innerHTML = 
-            '<source src="' + this.data.video.src.mp4 + '" type="video/mp4" />\
-            <source src="' + this.data.video.src.webm + '" type="video/webm"/>\
-            <source src="' + this.data.video.src.ogg + '" type="video/ogg" />';
-        this.video.width = this.data.video.w;
-        this.video.height = this.data.video.h;
-        /* set autoplay */
-        if (this.autoplay == 1 && this.data.video.coverImage.src == '') {
-            this.video.setAttribute('autoplay', '');
-        }
-        /* mute by default */
-        if ((this.autoplay == 1 && this.data.video.coverImage.src == '') || this.autoplay == 2) {
-            this.video.setAttribute('muted', '');
+        if (this.data.video.mobile) {
+            this.mobile();    
+        } else {
+            this.renderVideo();
         }
         
         /* control */
         if (this.data.video.control == 1) {
-            this.video.setAttribute('controls', '');
+            //this.video.setAttribute('controls', '');
+            //this.renderReplayButton();
+            this.renderControl();
         } else if (this.data.video.control == 2) {
             this.renderSpecialControl();
         }
@@ -73,6 +67,28 @@ component.prototype = {
         this.renderClickthrough();
         
         this.content.appendChild(this.videoContainer);
+    },
+    renderVideo : function () {
+        /* render video */
+        this.video = document.createElement('video')
+        this.video.id = 'video';
+        this.video.controller = true;
+        this.video.innerHTML = 
+            '<source src="' + this.data.video.src.mp4 + '" type="video/mp4" />\
+            <source src="' + this.data.video.src.webm + '" type="video/webm"/>\
+            <source src="' + this.data.video.src.ogg + '" type="video/ogg" />';
+        this.video.width = this.data.video.w;
+        this.video.height = this.data.video.h; 
+        /* set autoplay */
+        if (this.autoplay == 1 && this.data.video.coverImage.src == '') {
+            //this.video.setAttribute('autoplay', '');
+        }
+        /* mute by default */
+        if ((this.autoplay == 1 && this.data.video.coverImage.src == '') || this.autoplay == 2) {
+            this.video.setAttribute('muted', '');
+        } else {
+            this.video.setAttribute('muted', '');
+        }
     },
     renderCoverImage : function () {
         if (this.data.video.coverImage.src != '') {
@@ -101,6 +117,7 @@ component.prototype = {
         }
     },
     renderClickthrough : function () {
+        /*
         if (this.data.video.clickthrough.txt != '' && this.data.video.clickthrough.lpUrl != '') {
             this.clickthrough = document.createElement('div');
             this.clickthrough.height = '25';
@@ -111,8 +128,54 @@ component.prototype = {
         
             this.videoContainer.appendChild(this.clickthrough);
         }
+        */
+        if (this.data.video.clickthrough.lpUrl != '') {
+            this.clickthrough = document.createElement('div');
+            this.clickthrough.height = '25';
+            this.clickthrough.id = 'clickthrough-container-' + this.id;
+            this.clickthrough.className = 'clickthrough-container';
+            
+            this.videoContainer.appendChild(this.clickthrough);
+        }
     },
     renderReplayButton : function () {
+        this.replayBtn = document.createElement('div');
+        this.replayBtn.id = 'control-replay-' + this.id;
+        this.replayBtn.className = 'control-replay';
+        this.replayBtn.innerHTML = '<img src="images/replay.png"/>';
+        
+        this.videoContainer.appendChild(this.replayBtn);
+    },
+    renderControl : function () {
+        
+        this.control.audio = document.createElement('div');
+        this.control.audio.id = 'default-control-audio-container-' + this.id;
+        this.control.audio.className = 'default-control-audio-container';
+        this.control.audio.innerHTML = 
+            '<img src="images/mute.png" class="dc-mute "/> \
+             <img src="images/unmute.png" class="dc-unmute"/>';
+        
+        
+        this.control.play = document.createElement('div');
+        this.control.play.id = 'default-control-play-container-' + this.id;
+        this.control.play.className = 'default-control-play-container';
+        this.control.play.innerHTML = 
+            '<img src="images/play.png" class="dc-play"/> \
+             <img src="images/pause.png" class="dc-pause"/>';
+        
+        
+        this.control.replay = document.createElement('div');
+        this.control.replay.id = 'default-control-replay-container-' + this.id;
+        this.control.replay.className = 'default-control-replay-container';
+        this.control.replay.innerHTML = 
+            '<img src="images/replay.png" class="dc-replay"/> \
+             <svg width="32" height="32"><g> \
+                <circle id="circle" class="circle_animation" r="10" cy="16" cx="16" stroke-width="6" stroke="#6fdb6f" fill="none"/> \
+             </g></svg>';
+        
+        this.videoContainer.appendChild(this.control.audio);
+        this.videoContainer.appendChild(this.control.play);
+        this.videoContainer.appendChild(this.control.replay);
         
     },
     /* 
@@ -123,13 +186,13 @@ component.prototype = {
     */
     renderSpecialControl : function () {
         this.specialControl = document.createElement('div');
-        this.specialControl.id = 'special-control-' + this.tab;
+        this.specialControl.id = 'special-control-' + this.id;
         this.specialControl.className = 'special-control';
         this.specialControl.innerHTML = 
-            '<img src="images/play.png"/> \
-             <img src="images/mute.png"/> \
-             <img src="images/unmute.png"/> \
-             <img src="images/replay.png"/>';
+            '<img src="images/play.png" class="spc-play spc-controller"/> \
+             <img src="images/mute.png" class="spc-mute spc-controller"/> \
+             <img src="images/unmute.png" class="spc-unmute spc-controller"/> \
+             <img src="images/replay.png" class="spc-replay spc-controller"/>';
         
         this.videoContainer.appendChild(this.specialControl);
     },
@@ -140,25 +203,57 @@ component.prototype = {
         
         var _this = this;
         
+        if (!this.data.video.mobile) {
+            this.eventsVideoSetter();
+        }
+        
         /* cover image */
         this.eventsCoverImage();
         /* clickthrough */
         this.eventsClickthrough();
+        /* replay */
+        //this.eventsReplayBtn();
+        /* special control */
+        //this.eventsSpecialControl();
+        /* control */
+        this.eventsControl();
         
         this.video.addEventListener('play', function () {
-            console.log('play');
+            /* update video state */
+            _this.videoState = 1;
+            /* tracker */
+            _this.tracker({
+                type : 'video_play'
+            });
+            
+            _this.playTimeTracking = setInterval(function(){
+                _this.trackPlayTime();
+            }, 1000);
         });
         this.video.addEventListener('pause', function () {
-            console.log('pause');
+            /* update video state */
+            _this.videoState = 2;
+            /* tracker */
+            _this.tracker({
+                type : 'video_pause'
+            });
         });
         this.video.addEventListener('replay', function () {
-            console.log('replay');
+            /* tracker */
+            _this.tracker({
+                type : 'video_replay'
+            });
         });
         this.video.addEventListener('stop', function () {
-            console.log('stop');
         });
         
         this.video.addEventListener('ended', function () {
+            /* update video state */
+            _this.videoState = 3;
+            /* tracker */
+            _this.tracker({
+                type : 'video_ended'
+            });
             /* ending image */
             _this.eventsEndingImage();
         })
@@ -184,6 +279,17 @@ component.prototype = {
         });
         
     },
+    eventsVideoSetter : function () {
+        var _this = this;
+        /* mute setter */
+        this.video.mute = function () {
+            _this.video.muted = true;
+        }
+        /* unmute setter */
+        this.video.unmute = function () {
+            _this.video.muted = false;
+        }
+    },
     eventsCoverImage : function () {
         var _this = this;
         
@@ -196,7 +302,9 @@ component.prototype = {
             }
             /* open landing page */
             fn[1] = function () {
-                console.log(_this.data.video.coverImage.lpUrl);
+                _this.linkOpener({
+                    url : _this.data.video.coverImage.lpUrl
+                });
                 
                 e.target.style.display = 'none';
             }
@@ -214,72 +322,243 @@ component.prototype = {
         
         if (this.clickthrough != '') {
             this.clickthrough.addEventListener('click', function () {
-                console.log(_this.data.video.clickthrough.lpUrl);
+                _this.linkOpener({
+                    url : _this.data.video.clickthrough.lpUrl
+                });
             });
+            /*
             this.video.addEventListener('play', function () {
-                /* hide txt after video played for 5 secs */
+                // hide txt after video played for 5 secs 
                 setTimeout(function () {
                     _this.clickthrough.querySelector('span').style.display = 'none';
                 }, 5000);
             });
+        */
         }
     }, 
+    eventsReplayBtn : function () {
+        var _this = this;
+        
+        if(this.replayBtn != '') {
+            /* ended, show replay */
+            this.video.addEventListener('ended', function () {
+                _this.replayBtn.querySelector('img').style.display = 'block';
+            });
+            
+            this.replayBtn.querySelector('img').addEventListener('click', function (e) {
+                _this.video.muted = false;
+                _this.video.play();
+                e.target.style.display = 'none';
+            })
+        }
+    },
+    eventsControl : function () {
+        var _this = this;
+        if (this.control['play'] != 'undefined') {
+            
+            if (this.data.video.autoplay == 0) {
+                this.control.play.querySelector('.dc-play').style.display = 'block';
+            }
+            this.control.audio.querySelector('.dc-mute').style.display = 'block';
+            
+            /* played, show mute/unmute */
+            this.video.addEventListener('play', function () {
+                var time = Math.round(_this.video.duration); console.log(time)
+                var initialOffset = '65';
+                var i = 1
+                document.querySelector('.circle_animation').style.strokeDashoffset = initialOffset;
+                var interval = setInterval(function() {
+                    document.querySelector('.circle_animation').style.strokeDashoffset = initialOffset-(i*(initialOffset/time));
+
+                    if (i == time) {
+                        clearInterval(interval);
+                    }
+                    i++;  
+                }, 1000);
+            });
+            
+            /* ended, show replay */
+            this.video.addEventListener('ended', function () {
+                _this.control.play.querySelector('.dc-play').style.display = 'none';
+                _this.control.play.querySelector('.dc-pause').style.display = 'none';
+                _this.control.replay.querySelector('.dc-replay').style.display = 'block';
+                _this.control.replay.querySelector('svg').style.display = 'none';
+            });
+            
+            /* control events */
+            this.control.play.querySelector('.dc-play').addEventListener('click', function (e) {
+                _this.video.play();
+                /* hide play */
+                e.target.style.display = 'none';
+                /* show pause */
+                _this.control.play.querySelector('.dc-pause').style.display = 'block';
+            })
+            this.control.play.querySelector('.dc-pause').addEventListener('click', function (e) {
+                _this.video.pause();
+                /* hide play */
+                e.target.style.display = 'none';
+                /* show pause */
+                _this.control.play.querySelector('.dc-play').style.display = 'block';
+            })
+            this.control.audio.querySelector('.dc-mute').addEventListener('click', function (e) {
+                _this.video.unmute();
+                /* hide mute */
+                e.target.style.display = 'none';
+                /* show unmute */
+                _this.control.audio.querySelector('.dc-unmute').style.display = 'block';
+            })
+            this.control.audio.querySelector('.dc-unmute').addEventListener('click', function (e) {
+                _this.video.mute();
+                /* hide mute */
+                e.target.style.display = 'none';
+                /* show unmute */
+                _this.control.audio.querySelector('.dc-mute').style.display = 'block';
+            })
+            this.control.replay.querySelector('.dc-replay').addEventListener('click', function (e) {
+                _this.video.unmute();
+                _this.video.play();
+                /* hide replay */
+                e.target.style.display = 'none';
+                _this.control.replay.querySelector('svg').style.display = 'block';
+                _this.control.play.querySelector('.dc-play').style.display = 'none';
+                _this.control.play.querySelector('.dc-pause').style.display = 'block';
+                _this.control.audio.querySelector('.dc-unmute').style.display = 'block';
+                _this.control.audio.querySelector('.dc-mute').style.display = 'none';
+            })
+        }
+    },
+    /*
+    * show play button when the video is not autoplay
+    * show mute/unmute when video is playing
+    * show replay when video is ended
+    */
     eventsSpecialControl : function () {
         var _this = this; 
         
         if (this.specialControl != '') {
+            
+            var hideController = function () {
+                var controller = _this.specialControl.querySelectorAll('.spc-controller');
+                controller[0].style.display = 'none';
+                controller[1].style.display = 'none';
+                controller[2].style.display = 'none';
+                controller[3].style.display = 'none';
+            }
+            
             /* check for autoplay */
+            if (this.data.video.autoplay == 0) {
+                hideController();
+                this.specialControl.querySelector('.spc-play').style.display = 'block';
+                this.specialControl.querySelector('.spc-play').addEventListener('click', function () {
+                    _this.video.play();
+                })
+            }
             
             /* played, show mute/unmute */
+            this.video.addEventListener('play', function () {
+                hideController();
+            });
             
             /* ended, show replay */
+            this.video.addEventListener('ended', function () {
+                hideController();
+                _this.specialControl.querySelector('.spc-replay').style.display = 'block';
+            });
+            
+            _this.video.addEventListener('mouseenter', function () {
+                if (_this.videoState == 1) {
+                    if (_this.video.muted) {
+                        _this.specialControl.querySelector('.spc-unmute').style.display = 'block';
+                    } else {
+                        _this.specialControl.querySelector('.spc-mute').style.display = 'block';
+                    }
+                }
+            })
+            _this.video.addEventListener('mouseleave', function () {
+                if (_this.videoState == 1) {
+                    _this.specialControl.querySelector('.spc-replay').style.display = 'none';
+                }
+            })
+            
+            /* spc controller events */
+            _this.specialControl.querySelector('.spc-mute').addEventListener('click', function () {
+                _this.video.muted = true;
+                hideController();
+                _this.specialControl.querySelector('.spc-unmute').style.display = 'block';
+            })
+            _this.specialControl.querySelector('.spc-unmute').addEventListener('click', function () {
+                _this.video.muted = false;
+                hideController();
+                _this.specialControl.querySelector('.spc-mute').style.display = 'block';
+            })
+            _this.specialControl.querySelector('.spc-replay').addEventListener('click', function () {
+                _this.video.muted = false;
+                _this.video.play();
+            })
+        }
+    },
+    
+    
+    
+    
+    linkOpener : function (options) {
+        console.log(options.url);
+    },
+    tracker : function (options) {
+        console.log(options.type)
+    },
+    extTracker : function (options) {
+        /* js */
+        if (this.data.video.extTrackers.type == 1) {
+            
+            var s = document.createElement('script');
+            s.style.display = 'none';
+            s.src = this.data.video.extTrackers[options.type];
+            
+            document.body.appendChild(s);
+        } 
+        /* img */
+        else if (this.data.video.extTrackers.type == 2) {
+            var i = document.createElement('img');
+            i.style.width = '1px';
+            i.style.height = '1px';
+            i.style.display = 'none';
+            i.src = this.data.video.extTrackers[options.type];
+            
+            document.body.appendChild(i);
+        }
+    },
+    trackPlayTime : function () {
+        var _this = this;
+        var duration = this.video.duration;
+        var currentTime = this.video.currentTime;
+        
+        if (currentTime >= duration) {
+            /* tracker */
+            _this.tracker({
+                type : 'video_play_100'
+            });
+            /* stop play time tracking */
+            clearInterval(_this.playTimeTracking)
+        }
+        else if (currentTime >= duration * 0.75) {
+            /* tracker */
+            _this.tracker({
+                type : 'video_play_75'
+            });
+        }
+        else if (currentTime >= duration * 0.5) {
+            /* tracker */
+            _this.tracker({
+                type : 'video_play_50'
+            });
+        }
+        else if (currentTime >= duration * 0.25) {
+            /* tracker */
+            _this.tracker({
+                type : 'video_play_25'
+            });
         }
     }
 }
 
-/* Initializing */
-new component ({
-    container : $('#test'), //optional (freeflow ad creation)
-    id : 1,
-    content : $('#test'), // needed for rendering only
-    controller : null, //optional (freeflow creation)
-    sdk : null, //optional (freeflow)
-    tab : 'tab1',
-    layer : 'layer1', //optional (freeflow)
-    data : {
-        video : {
-            w : 300,
-            h : 250,
-            src : {
-                mp4 : 'http://www.w3schools.com/html/mov_bbb.mp4',
-                webm : '',
-                ogg : 'http://www.w3schools.com/html/mov_bbb.ogg'
-            },
-            coverImage : {
-                src : '',
-                action : 0,
-                lpUrl : ''
-            },
-            endingImage : {
-                src : 'http://www.imagine-publishing.co.uk/adresources/images/300x250.jpg',
-                action : 0,
-                lpUrl : ''
-            },
-            control : 2,
-            autoplay : 2,
-            clickthrough : {
-                txt : 'Click Here', 
-                lpUrl : 'https://www.w3schools.com'
-            },
-            extTrackers : {
-                type : 0,
-                video_play : '',
-                video_play_25 : '',
-                video_play_50 : '',
-                video_play_75 : '',
-                video_play_100 : ''
-            }
-        }
-        
-    } // needed for rendering only
-})
