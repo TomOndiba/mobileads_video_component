@@ -29,7 +29,15 @@ var component = function (options) {
     this.playTimeTracking = function () {};
     this.control = {};
     
+    /* templated ad & flexi ad creator */
     this.render();
+    
+    /* html5 */
+    if (this.data.video.mobile) {
+        this.mobile();
+        var desktopVideo = this.videoContainer.querySelector('video');
+        desktopVideo.parentNode.replaceChild(this.video, desktopVideo);
+    }
     this.events();
 }
 
@@ -42,11 +50,16 @@ component.prototype = {
         this.videoContainer.id = 'video-container-' + this.id;
         this.videoContainer.className = 'video-container';
         
+        /* to be used by templated adserving only */
+        /*
         if (this.data.video.mobile) {
             this.mobile();    
         } else {
             this.renderVideo();
         }
+        */
+        /* to be used by both ad creator */
+        this.renderVideo();
         
         /* control */
         if (this.data.video.control == 1) {
@@ -81,7 +94,7 @@ component.prototype = {
         this.video.height = this.data.video.h; 
         /* set autoplay */
         if (this.autoplay == 1 && this.data.video.coverImage.src == '') {
-            //this.video.setAttribute('autoplay', '');
+            this.video.setAttribute('autoplay', '');
         }
         /* mute by default */
         if ((this.autoplay == 1 && this.data.video.coverImage.src == '') || this.autoplay == 2) {
@@ -170,7 +183,7 @@ component.prototype = {
         this.control.replay.innerHTML = 
             '<img src="images/replay.png" class="dc-replay"/> \
              <svg width="32" height="32"><g> \
-                <circle id="circle" class="circle_animation" r="10" cy="16" cx="16" stroke-width="6" stroke="#6fdb6f" fill="none"/> \
+                <circle id="circle" class="circle_animation" r="13.971398" cy="16" cx="16" stroke-width="4" stroke="#6fdb6f" fill="none"/> \
              </g></svg>';
         
         this.videoContainer.appendChild(this.control.audio);
@@ -228,23 +241,20 @@ component.prototype = {
             
             _this.playTimeTracking = setInterval(function(){
                 _this.trackPlayTime();
-            }, 1000);
+            }, 500);
         });
         this.video.addEventListener('pause', function () {
-            /* update video state */
-            _this.videoState = 2;
-            /* tracker */
-            _this.tracker({
-                type : 'video_pause'
-            });
-        });
-        this.video.addEventListener('replay', function () {
-            /* tracker */
-            _this.tracker({
-                type : 'video_replay'
-            });
-        });
-        this.video.addEventListener('stop', function () {
+            
+            /* video end will trigger pause event, so will need to check the time */
+            if (_this.video.currentTime < _this.video.duration) {
+                /* update video state */
+                _this.videoState = 2;
+                
+                /* tracker */
+                _this.tracker({
+                    type : 'video_pause'
+                });
+            }
         });
         
         this.video.addEventListener('ended', function () {
@@ -252,10 +262,16 @@ component.prototype = {
             _this.videoState = 3;
             /* tracker */
             _this.tracker({
+                type : 'video_play_100'
+            });
+            /* tracker */
+            _this.tracker({
                 type : 'video_ended'
             });
             /* ending image */
             _this.eventsEndingImage();
+            /* stop play time tracking */
+            clearInterval(_this.playTimeTracking)
         })
         
         /* listen to post message */
@@ -313,8 +329,20 @@ component.prototype = {
         }
     },
     eventsEndingImage : function () {
+        var _this = this;
+        
         if (this.endingImage != '') {
             this.endingImage.style.display = 'block';
+            
+            this.endingImage.addEventListener('click', function () {
+                _this.linkOpener({
+                    url : _this.data.video.endingeImage.lpUrl
+                });
+            });
+            
+            this.video.addEventListener('play', function () {
+                _this.endingImage.style.display = 'none';
+            });
         }
     },
     eventsClickthrough : function () {
@@ -356,25 +384,42 @@ component.prototype = {
         var _this = this;
         if (this.control['play'] != 'undefined') {
             
+            /* show play by default if it is non autoplay or inview autoplay */
             if (this.data.video.autoplay == 0) {
                 this.control.play.querySelector('.dc-play').style.display = 'block';
+            } 
+            /* show pause by default if it is autoplay */
+            else if (this.data.video.autoplay != 0 && this.data.video.autoplay == 2) {
+                this.control.play.querySelector('.dc-pause').style.display = 'block';
             }
             this.control.audio.querySelector('.dc-mute').style.display = 'block';
             
             /* played, show mute/unmute */
             this.video.addEventListener('play', function () {
-                var time = Math.round(_this.video.duration); console.log(time)
-                var initialOffset = '65';
-                var i = 1
+                /* play show/hide */
+                _this.control.play.querySelector('.dc-play').style.display = 'none';
+                _this.control.play.querySelector('.dc-pause').style.display = 'block';
+                
+                /* timer */
+                var initialOffset = '88';
                 document.querySelector('.circle_animation').style.strokeDashoffset = initialOffset;
                 var interval = setInterval(function() {
-                    document.querySelector('.circle_animation').style.strokeDashoffset = initialOffset-(i*(initialOffset/time));
+                    
+                    _this.control.replay.querySelector('.circle_animation').style.strokeDashoffset = initialOffset-(_this.video.currentTime*(initialOffset/_this.video.duration));
 
-                    if (i == time) {
+                    if (_this.video.currentTime == _this.video.duration) {
                         clearInterval(interval);
                     }
-                    i++;  
+                    
+                    if (_this.videoState != 1) {
+                        clearInterval(interval);
+                    }
                 }, 1000);
+            });
+            /* pause, show replay */
+            this.video.addEventListener('pause', function () {
+                _this.control.play.querySelector('.dc-play').style.display = 'block';
+                _this.control.play.querySelector('.dc-pause').style.display = 'none';
             });
             
             /* ended, show replay */
@@ -388,17 +433,9 @@ component.prototype = {
             /* control events */
             this.control.play.querySelector('.dc-play').addEventListener('click', function (e) {
                 _this.video.play();
-                /* hide play */
-                e.target.style.display = 'none';
-                /* show pause */
-                _this.control.play.querySelector('.dc-pause').style.display = 'block';
             })
             this.control.play.querySelector('.dc-pause').addEventListener('click', function (e) {
                 _this.video.pause();
-                /* hide play */
-                e.target.style.display = 'none';
-                /* show pause */
-                _this.control.play.querySelector('.dc-play').style.display = 'block';
             })
             this.control.audio.querySelector('.dc-mute').addEventListener('click', function (e) {
                 _this.video.unmute();
@@ -415,6 +452,11 @@ component.prototype = {
                 _this.control.audio.querySelector('.dc-mute').style.display = 'block';
             })
             this.control.replay.querySelector('.dc-replay').addEventListener('click', function (e) {
+                
+                /* tracker */
+                _this.tracker({
+                    type : 'video_replay'
+                });
                 _this.video.unmute();
                 _this.video.play();
                 /* hide replay */

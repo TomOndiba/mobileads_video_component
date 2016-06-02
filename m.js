@@ -18,14 +18,11 @@ component.prototype.mobile = function() {
             maxLoadedPerFrame = 4, // limit number of images downloaded per animation frame; this prevents video freeze to unpack from JPEG/PNG
             loadPerFrame, // number of images already downloaded during this frame
             isLoadingBlocked,
-
-            containerEl = options.containerElement, // container node
-            tabId = options.containerElement.id.split("-")[1],
+            
+            tabId = options.id,
             canvasEl, // canvas node
             canvasCtx, // canvas 2d context
             audioEl, // audio node, created dynamically
-            seekEl, // seek node
-            totalEl, // text element displaying total time
             percentageEl, // text element displaying loading percentage pressing controls
             hideControlsTimeoutId, // handler to timeout that hides controls when not used
 
@@ -85,7 +82,6 @@ component.prototype.mobile = function() {
             audioUrl = options.audioUrl, // url from which to load audio
             images = new Array(videoLength), // all saved images together with event handlers
             dimensions = options.dimensions,
-            tab = options.tab,
             // array of all DIMENSIONS objects
             currentDimension, // current dimension
             width, // width of current dimension
@@ -101,7 +97,6 @@ component.prototype.mobile = function() {
 
             isSeekReleased = true, // do not update seekbar when it's been dragged or clicked
             isPreviewShown, // special case when the preview frame is shown before starting video
-            controllerType = options.controllerType, //define the types of controller - NJ
             playEvent = new CustomEvent('play', {
                 detail: {
                     id: tabId
@@ -132,8 +127,6 @@ component.prototype.mobile = function() {
                     id: tabId
                 }
             }),
-            landing_url = options.landing_url,
-            customTrackLink = options.customTrackLink,
             canvasWidth = 0,
             canvasHeight = 0;
 
@@ -275,16 +268,9 @@ component.prototype.mobile = function() {
                 imagesUrl = dimension.imagesUrl;
                 cdnsCount = imagesUrl.length;
                 totalConnections = Math.min(connectionsPerHost * cdnsCount, maxPossibleConnections) - (isAudioLoaded ? 0 : 1);
-
-                containerEl.style.width = width + 'px';
-                containerEl.style.height = height + 'px';
+                
                 canvasEl.width = width;
                 canvasEl.height = height;
-
-                /* Check if seek is not null - NJ */
-                if (seekEl != null) {
-                    seekEl.style.width = (width - 210) + 'px';
-                }
             }
         }
 
@@ -595,8 +581,7 @@ component.prototype.mobile = function() {
 
         function restart() {
             playingPos = 0;
-            stopPlaying();
-            updateRange();
+            stopPlaying({delayed:false});
             drawFrame();
 
             if (isLoop) {
@@ -608,6 +593,9 @@ component.prototype.mobile = function() {
 
 
         function drawFrame() {
+            
+            canvasEl.currentTime = Math.floor(playingPos / FPS);
+            
             var img = images[playingPos],
                 complete = img && img.complete;
 
@@ -673,7 +661,6 @@ component.prototype.mobile = function() {
 
             if (doSynchronisationAsap || playingPos % 7 === 0) {
                 doSynchronisationAsap = false;
-                updateRange();
 
                 if (isAudioPlaying) {
                     var videoMinusAudioMs = (playingPos / FPS - audioEl.currentTime) * 1000;
@@ -704,7 +691,6 @@ component.prototype.mobile = function() {
             if (drawFrame()) {
                 iteratePlayingPos();
                 if (playingPos >= videoLength) {
-                    console.log('endedddd')
                     canvasEl.dispatchEvent(endEvent);
                     restart();
                     return;
@@ -737,8 +723,8 @@ component.prototype.mobile = function() {
                     //nextLoadingPos - playingPos > 100 ||
                     (isAudioPlaying && (audioEl.currentTime * FPS - playingPos > syncTolerance)) ||
                     framesDelayed > 2 * syncTolerance
-                ) {
-                    stopPlaying();
+                ) { console.log('delayed');
+                    stopPlaying({delayed:true});
                     loadVideo();
                 }
                 framesDelayed++;
@@ -777,8 +763,10 @@ component.prototype.mobile = function() {
         }
 
 
-        function stopPlaying() {
-            containerEl.dispatchEvent(pauseEvent);
+        function stopPlaying(options) {
+            if (!options.delayed) {
+                canvasEl.dispatchEvent(pauseEvent);
+            }
             clearTimeout(calcSpeedTimeoutId);
             percentageEl.className = 'vp-hidden spinner';
 
@@ -793,7 +781,7 @@ component.prototype.mobile = function() {
 
 
         function startVideo() {
-            containerEl.dispatchEvent(playEvent);
+            canvasEl.dispatchEvent(playEvent);
             clearTimeout(calcSpeedTimeoutId);
             percentageEl.className = 'vp-hidden spinner';
 
@@ -967,14 +955,10 @@ component.prototype.mobile = function() {
             volume = newVolume;
         }
 
-        function setAttribute(name, val) {
-            containerEl.setAttribute(name, val);
-        }
-
         /* MAIN FUNCTIONS */
 
         function mute() {
-            containerEl.dispatchEvent(muteEvent);
+            canvasEl.dispatchEvent(muteEvent);
             pauseAudio();
             isMuted = true;
         }
@@ -982,7 +966,7 @@ component.prototype.mobile = function() {
 
         function unmute() {
             if (audioUrl != "") {
-                containerEl.dispatchEvent(unmuteEvent);
+                canvasEl.dispatchEvent(unmuteEvent);
                 isMuted = false;
                 startAudio();
             }
@@ -997,22 +981,12 @@ component.prototype.mobile = function() {
 
         function stop() {
             isVideoTryingToPlay = false;
-            stopPlaying();
-        }
-
-
-        function seek(newPos) {
-            isSeekReleased = true;
-            stopPlaying();
-
-            playingPos = newPos;
-            updateRange();
-            loadVideo();
+            stopPlaying({delayed:false});
         }
 
         /* replay video, audio play by default - NJ */
         function replay() {
-            containerEl.dispatchEvent(replayEvent);
+            canvasEl.dispatchEvent(replayEvent);
             restart();
             startPlaying();
             isTrying2Play = true;
@@ -1033,8 +1007,6 @@ component.prototype.mobile = function() {
 
         this.replay = replay;
 
-        this.seek = seek;
-
         this.currentTime = currentTime;
 
         this.mute = mute;
@@ -1044,83 +1016,26 @@ component.prototype.mobile = function() {
         this.setVolume = setVolume;
 
         this.duration = duration;
-
-        this.setAttribute = setAttribute;
-
+        
         function createHTML() {
 
             var t = document.createElement('div');
 
-            var $ = t.querySelector.bind(t),
-                controlsHeight = 29;
+            var $ = t.querySelector.bind(t);
 
             t.innerHTML =
                 '<canvas id=vp-canvas></canvas> \
-                    <input id=vp-seek type=range value=0 min=0>\
                  </div>\
                  <div id=vp-percentage class=vp-hidden></div>';
             
             canvasEl = $('#vp-canvas');
-            console.log(canvasEl)
-            seekEl = $('#vp-seek');
-            totalEl = $('#vp-total');
             percentageEl = $('#vp-percentage');
             canvasCtx = canvasEl.getContext("2d");
         }
-
-
-        function animate(btn, btnClass, puffClass) {
-            /* Check if btn is not null - NJ */
-            if (btn != null) {
-                btn.className = btnClass;
-
-                /* use smaller image for small ad - April */
-                if (height < 100) {
-                    btn.className = btn.className + ' small';
-                }
-            }
-        }
-
-
-        function bindActions() {
-
-            function lockSeek() {
-                isSeekReleased = false;
-            }
-
-
-            function seekUsingRange() {
-                seek(Math.round(this.value));
-            }
-
-            /* Check if seek is not null - NJ */
-            if (seekEl != null) {
-                seekEl.addEventListener('mousedown', lockSeek);
-                seekEl.addEventListener('touchstart', lockSeek);
-
-                seekEl.addEventListener('mouseup', seekUsingRange);
-                seekEl.addEventListener('touchend', seekUsingRange);
-
-                seekEl.max = videoLength - 1;
-            }
-        }
-
-
-        function updateRange() {
-            /* Check if seekEl is not null - NJ */
-            if (seekEl != null) {
-                if (isSeekReleased) {
-                    seekEl.value = playingPos;
-                }
-            }
-        }
-
-
+        
         detectOldPhones();
 
         createHTML();
-
-        bindActions();
 
         resizeVideo(options.defaultDimension);
 
@@ -1161,7 +1076,7 @@ component.prototype.mobile = function() {
 
                             /* Video Stops and not restart, fire end event - NJ */
                             if (!isLoop) {
-                                containerEl.dispatchEvent(endEvent);
+                                canvasEl.dispatchEvent(endEvent);
                             }
                             restart();
                             return;
@@ -1175,33 +1090,28 @@ component.prototype.mobile = function() {
             intervals[id] = setTimeout(tick, 0);
             return id;
         };
-
-        console.log(canvasEl)
+        
         canvasEl.play = this.play;
         canvasEl.pause = this.pause;
         canvasEl.mute = this.mute;
         canvasEl.unmute = this.unmute;
-
-
+        canvasEl.duration = Math.floor(duration);
+        
         return canvasEl;
     }
 
+    /* initializing mobile video */
     this.video = new Video({
-        fps: 10,
-        containerElement: this.videoContainer,
-        numberOfFrames: 152,
+        id : this.id,
+        fps: this.data.video.fps,
+        numberOfFrames: this.data.video.frames,
         dimensions: [{
-            width: 320,
-            height: 480,
-            imagesUrl: ['https://rmarepo.richmediaads.com/2688/images/autoplay/vyyd8x1mjl6rskcyds4i/image_']
+            width: 300,
+            height: 250,
+            imagesUrl: [this.data.video.src.img_url]
         }],
         defaultDimension: 0,
-        audioUrl: 'https://rmarepo.richmediaads.com/2688/images/autoplay/vyyd8x1mjl6rskcyds4i/audio.mp3',
-        autoplay: 1,
-        controllerType: 1,
-        landing_url: '',
-        customTrackLink: '',
-        autoplay: false,
-        tab: 1
+        audioUrl: this.data.video.src.audio_url,
+        autoplay: this.data.video.autoplay == 1 ? true : false
     });
 }
